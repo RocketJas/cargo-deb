@@ -122,8 +122,6 @@ pub fn compress_assets(options: &mut Config, listener: &dyn Listener) -> CDResul
     Ok(())
 }
 
-// pub struct sha256_digest(pub [u8; 32]);
-
 /// Copies all the files to be packaged into the tar archive.
 /// Returns sha256 hashes of files copied
 fn archive_files<W: Write>(archive: &mut Archive<W>, options: &Config, listener: &dyn Listener) -> CDResult<HashMap<PathBuf, DigestBytes>> {

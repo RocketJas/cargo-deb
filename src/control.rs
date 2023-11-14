@@ -125,9 +125,6 @@ impl<'l, W: Write> ControlArchiveBuilder<'l, W> {
         // Collect sha256sums from each asset in the archive (excludes symlinks).
         for asset in &options.assets.resolved {
             if let Some(value) = asset_hashes.get(&asset.c.target_path) {
-                // let values_vec = value.as_ref().to_vec();
-                // let foo = value;
-                // openssl hashers return a vec of u8, we convert to hexidecimal here
                 write!(sha256sums, "{}", hex::encode(value))?;
                 sha256sums.write_all(b"  ")?;
 

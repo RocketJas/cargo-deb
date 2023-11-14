@@ -98,7 +98,7 @@ quick_error! {
         }
         OpenSsl(err: openssl::error::ErrorStack) {
             from()
-            display("Please ensure you have installed OpenSsl {}", err)
+            display("Please ensure you have installed OpenSSL {}", err)
             source(err)
         }
     }
