@@ -96,6 +96,11 @@ quick_error! {
         LzmaCompressionError(err: xz2::stream::Error) {
             display("lzma compression error: {:?}", err)
         }
+        OpenSsl(err: openssl::error::ErrorStack) {
+            from()
+            display("Please ensure you have installed OpenSsl {}", err)
+            source(err)
+        }
     }
 }
 
