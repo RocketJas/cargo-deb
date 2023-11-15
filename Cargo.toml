@@ -42,7 +42,6 @@ doc = false
 flate2 = "1.0.27"
 zopfli = { version = "0.8.0", default-features = false, features = ["std", "gzip"] }
 getopts = "0.2.21"
-md5 = "0.7.0"
 quick-error = "2.0.1"
 xz2 = { version = "0.1.7", optional = true }
 serde = { version = "1.0.188", features = ["derive"] }
@@ -59,6 +58,9 @@ tempfile = "3.8.0"
 env_logger = "0.10.0"
 log = "0.4.20"
 crossbeam-channel = "0.5.8"
+openssl = "0.10.59"
+hex = "0.4.3"
+
 
 [features]
 default = ["lzma"]

@@ -2,7 +2,6 @@ use crate::error::{CDResult, CargoDebError};
 use crate::listener::Listener;
 use crate::manifest::{Asset, AssetSource, Config, IsBuilt};
 use crate::tararchive::Archive;
-use md5::Digest;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
@@ -10,9 +9,10 @@ use std::io;
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use zopfli::{BlockType, GzipEncoder, Options};
+use openssl::hash::{Hasher, MessageDigest, DigestBytes};
 
 /// Generates an uncompressed tar archive and hashes of its files
-pub fn generate_archive<W: Write>(dest: W, options: &Config, time: u64, listener: &dyn Listener) -> CDResult<(W, HashMap<PathBuf, Digest>)> {
+pub fn generate_archive<W: Write>(dest: W, options: &Config, time: u64, listener: &dyn Listener) -> CDResult<(W, HashMap<PathBuf, DigestBytes>)> {
     let mut archive = Archive::new(dest, time);
     let copy_hashes = archive_files(&mut archive, options, listener)?;
     Ok((archive.into_inner()?, copy_hashes))
@@ -70,7 +70,7 @@ pub(crate) fn generate_copyright_asset(options: &Config) -> CDResult<Vec<u8>> {
         append_copyright_metadata(&mut copyright, options)?;
     }
 
-    // Write a copy to the disk for the sake of obtaining a md5sum for the control archive.
+    // Write a copy to the disk for the sake of obtaining a sha256 for the control archive.
     Ok(copyright)
 }
 
@@ -123,18 +123,22 @@ pub fn compress_assets(options: &mut Config, listener: &dyn Listener) -> CDResul
 }
 
 /// Copies all the files to be packaged into the tar archive.
-/// Returns MD5 hashes of files copied
-fn archive_files<W: Write>(archive: &mut Archive<W>, options: &Config, listener: &dyn Listener) -> CDResult<HashMap<PathBuf, Digest>> {
-    let (send, recv) = crossbeam_channel::bounded(2);
+/// Returns sha256 hashes of files copied
+fn archive_files<W: Write>(archive: &mut Archive<W>, options: &Config, listener: &dyn Listener) -> CDResult<HashMap<PathBuf, DigestBytes>> {
+    let (send, recv): (crossbeam_channel::Sender<(PathBuf, std::borrow::Cow<'_, [u8]>)>, crossbeam_channel::Receiver<(PathBuf, std::borrow::Cow<'_, [u8]>)>) = crossbeam_channel::bounded(2);
     std::thread::scope(move |s| {
         let num_items = options.assets.resolved.len();
         let hash_thread = s.spawn(move || {
-            let mut hashes = HashMap::with_capacity(num_items);
-            hashes.extend(recv.into_iter().map(|(path, data)| {
-                (path, md5::compute(data))
-            }));
-            hashes
+        let hashes: Result<HashMap<PathBuf, DigestBytes>, CargoDebError> = recv.into_iter().try_fold(
+            HashMap::with_capacity(num_items), |mut acc, (path, data)| {
+            let mut hasher = Hasher::new(MessageDigest::sha256())?;
+            hasher.update(&data)?;
+            let hash = hasher.finish()?;
+            acc.insert(path, hash);
+            Ok(acc)
         });
+        hashes
+    });
         for asset in &options.assets.resolved {
             let mut log_line = format!("{} -> {}",
                 asset.source.path().unwrap_or_else(|| Path::new("-")).display(),
@@ -161,7 +165,7 @@ fn archive_files<W: Write>(archive: &mut Archive<W>, options: &Config, listener:
             }
         }
         drop(send);
-        Ok(hash_thread.join().unwrap())
+        Ok(hash_thread.join().unwrap()?)
     })
 }
 

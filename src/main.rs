@@ -243,7 +243,7 @@ fn process(
     let (control_builder, data_result) = rayon::join(
         move || {
             // The control archive is the metadata for the package manager
-            let mut control_builder = ControlArchiveBuilder::new(compress::select_compressor(fast, compress_type, compress_system)?, default_timestamp, listener);
+            let mut control_builder: ControlArchiveBuilder<'_, compress::Compressor> = ControlArchiveBuilder::new(compress::select_compressor(fast, compress_type, compress_system)?, default_timestamp, listener);
             control_builder.generate_archive(options)?;
             Ok::<_, CargoDebError>(control_builder)
         },
@@ -256,7 +256,7 @@ fn process(
     );
     let mut control_builder = control_builder?;
     let (data_compressed, original_data_size, asset_hashes) = data_result?;
-    control_builder.generate_md5sums(options, asset_hashes)?;
+    control_builder.generate_sha256sums(options, asset_hashes)?;
     let control_compressed = control_builder.finish()?.finish()?;
 
     let mut deb_contents = DebArchive::new(options)?;
